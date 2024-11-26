@@ -46,6 +46,7 @@ const ProductList = () => {
     const [data, setData] = useState(initialData);
     const [percentages, setPercentages] = useState({});
     const [total, setGrandTotal] = useState(0)
+    const [variance, setVariance] = useState({});
 
     const handlePercentageChange = (itemId, value) => {
         setPercentages({
@@ -55,69 +56,226 @@ const ProductList = () => {
     };
 
 
+    // const handleAllocationByPercentage = (itemId) => {
+    //     const percentage = parseInt(percentages[itemId]);
+
+    //     if (!isNaN(percentage)) {
+    //         const updatedData = data.map((item) => {
+    //             if (item.id === itemId) {
+    //                 const newValue = item.value * (1 + percentage / 100);
+
+    //                 // Update children based on the proportion of the parent's new value
+    //                 const updatedChildren = item.children.map((child) => {
+    //                     const newChildValue = child.value * (newValue / item.value);
+    //                     return { ...child, value: newChildValue };
+    //                 });
+
+    //                 return { ...item, value: newValue, children: updatedChildren };
+    //             }
+
+    //             if (item.children) {
+    //                 const updatedChildren = item.children.map((child) => {
+    //                     if (child.id === itemId) {
+    //                         // Update child value directly based on percentage
+    //                         const newValue = child.value * (1 + percentage / 100);
+    //                         return { ...child, value: newValue };
+    //                     }
+    //                     return child;
+    //                 });
+    //                 return { ...item, children: updatedChildren };
+    //             }
+    //             return item;
+    //         });
+    //         setData(updatedData);
+    //     }
+    // };
+
+    
     const handleAllocationByPercentage = (itemId) => {
         const percentage = parseInt(percentages[itemId]);
-
+    
         if (!isNaN(percentage)) {
             const updatedData = data.map((item) => {
                 if (item.id === itemId) {
-                    const newValue = item.value * (1 + percentage / 100);
-
-                    // Update children based on the proportion of the parent's new value
+                    const oldValue = item.value;
+                    const newValue = (oldValue * (1 + percentage / 100)).toFixed(2); // Fixed to 2 decimals
+                    const parentVariance = (((newValue - oldValue) / oldValue) * 100).toFixed(2); // Fixed to 2 decimals
+    
+                    // Update variance state for the parent item
+                    setVariance((prevVariance) => ({
+                        ...prevVariance,
+                        [itemId]: parseFloat(parentVariance),
+                    }));
+    
+                    // Calculate the total value of all children
+                    const totalChildrenValue = item.children.reduce((total, child) => total + child.value, 0);
+    
+                    // Update children values based on the parent's new value
                     const updatedChildren = item.children.map((child) => {
-                        const newChildValue = child.value * (newValue / item.value);
-                        return { ...child, value: newChildValue };
+                        const oldChildValue = child.value;
+                        const newChildValue = (child.value * (newValue / oldValue)).toFixed(2); // Fixed to 2 decimals
+    
+                        // Calculate the proportional variance for each child
+                        const childProportion = oldChildValue / totalChildrenValue;
+                        const childVariance = (childProportion * parentVariance).toFixed(2); // Fixed to 2 decimals
+    
+                        // Update variance for each child
+                        setVariance((prevVariance) => ({
+                            ...prevVariance,
+                            [child.id]: parseFloat(childVariance),
+                        }));
+    
+                        return { 
+                            ...child, 
+                            value: parseFloat(newChildValue), 
+                            totalVariance: parseFloat(childVariance) // Fixed to 2 decimals 
+                        };
                     });
-
-                    return { ...item, value: newValue, children: updatedChildren };
+    
+                    return {
+                        ...item,
+                        value: parseFloat(newValue), // Fixed to 2 decimals
+                        totalVariance: parseFloat(parentVariance), // Fixed to 2 decimals
+                        children: updatedChildren,
+                    };
                 }
-
+    
                 if (item.children) {
                     const updatedChildren = item.children.map((child) => {
                         if (child.id === itemId) {
-                            // Update child value directly based on percentage
-                            const newValue = child.value * (1 + percentage / 100);
-                            return { ...child, value: newValue };
+                            const oldValue = child.value;
+                            const newValue = (child.value * (1 + percentage / 100)).toFixed(2); // Fixed to 2 decimals
+                            const childVariance = (((newValue - oldValue) / oldValue) * 100).toFixed(2); // Fixed to 2 decimals
+    
+                            // Update variance for the child
+                            setVariance((prevVariance) => ({
+                                ...prevVariance,
+                                [child.id]: parseFloat(childVariance),
+                            }));
+    
+                            return { ...child, value: parseFloat(newValue), totalVariance: parseFloat(childVariance) }; // Fixed to 2 decimals
                         }
                         return child;
                     });
+    
                     return { ...item, children: updatedChildren };
                 }
+    
                 return item;
             });
+    
             setData(updatedData);
         }
     };
+    
+    
+
+
+    // const handleAllocationValue = (id) => {
+    //     const newValue = parseInt(percentages[id] || 0);
+    //     if (!isNaN(newValue)) {
+    //         setData((prev) => {
+    //             const updatedData = prev.map((item) => {
+    //                 if (item.id === id) {
+    //                     const updatedChildren = item.children.map((child) => {
+    //                         // Update children values based on new parent value
+    //                         const childProportion = child.value / item.value;
+    //                         const newChildValue = newValue * childProportion;
+    //                         return { ...child, value: newChildValue };
+    //                     });
+    //                     return { ...item, value: newValue, children: updatedChildren };
+    //                 }
+    //                 const updatedChildren = item.children.map((child) => {
+    //                     if (child.id === id) {
+    //                         return { ...child, value: newValue };
+    //                     }
+    //                     return child;
+    //                 });
+    //                 return { ...item, children: updatedChildren };
+    //             });
+    //             return updatedData;
+    //         });
+    //     }
+    // };
+
 
     const handleAllocationValue = (id) => {
         const newValue = parseInt(percentages[id] || 0);
+        
         if (!isNaN(newValue)) {
             setData((prev) => {
                 const updatedData = prev.map((item) => {
                     if (item.id === id) {
+                        const oldValue = item.value;
+                        const parentVariance = (((newValue - oldValue) / oldValue) * 100).toFixed(2); // Fixed to 2 decimals
+                        
+                        // Update variance for the parent item
+                        setVariance((prevVariance) => ({
+                            ...prevVariance,
+                            [id]: parseFloat(parentVariance),
+                        }));
+    
+                        // Update children values based on new parent value and calculate variance for each child
+                        const totalChildrenValue = item.children.reduce((total, child) => total + child.value, 0);
+    
                         const updatedChildren = item.children.map((child) => {
-                            // Update children values based on new parent value
-                            const childProportion = child.value / item.value;
+                            const oldChildValue = child.value;
+                            const childProportion = oldChildValue / totalChildrenValue;
                             const newChildValue = newValue * childProportion;
-                            return { ...child, value: newChildValue };
+                            
+                            // Calculate the proportional variance for each child
+                            const childVariance = (childProportion * parentVariance).toFixed(2); // Fixed to 2 decimals
+    
+                            // Update variance for each child
+                            setVariance((prevVariance) => ({
+                                ...prevVariance,
+                                [child.id]: parseFloat(childVariance),
+                            }));
+    
+                            return { 
+                                ...child, 
+                                value: parseFloat(newChildValue), 
+                                totalVariance: parseFloat(childVariance) // Fixed to 2 decimals
+                            };
                         });
-                        return { ...item, value: newValue, children: updatedChildren };
+    
+                        return {
+                            ...item,
+                            value: parseFloat(newValue), // Fixed to 2 decimals
+                            totalVariance: parseFloat(parentVariance), // Fixed to 2 decimals
+                            children: updatedChildren,
+                        };
                     }
-                    const updatedChildren = item.children.map((child) => {
-                        if (child.id === id) {
-                            return { ...child, value: newValue };
-                        }
-                        return child;
-                    });
-                    return { ...item, children: updatedChildren };
+    
+                    if (item.children) {
+                        const updatedChildren = item.children.map((child) => {
+                            if (child.id === id) {
+                                const oldValue = child.value;
+                                const newChildValue = parseInt(percentages[id] || 0);
+                                const childVariance = (((newChildValue - oldValue) / oldValue) * 100).toFixed(2); // Fixed to 2 decimals
+    
+                                // Update variance for the child
+                                setVariance((prevVariance) => ({
+                                    ...prevVariance,
+                                    [child.id]: parseFloat(childVariance),
+                                }));
+    
+                                return { ...child, value: parseFloat(newChildValue), totalVariance: parseFloat(childVariance) }; // Fixed to 2 decimals
+                            }
+                            return child;
+                        });
+    
+                        return { ...item, children: updatedChildren };
+                    }
+    
+                    return item;
                 });
+    
                 return updatedData;
             });
         }
     };
-
-
-
+    
     
 
     useEffect(() => {
@@ -215,6 +373,3 @@ const ProductList = () => {
 };
 
 export default ProductList;
-
-
-
